@@ -31,6 +31,7 @@ const uValue = document.getElementById("uValue");
 const aValue = document.getElementById("aValue");
 const eValue = document.getElementById("eValue");
 const iValue = document.getElementById("iValue");
+const rMeasValue = document.getElementById("rMeasValue");
 const fmagValue = document.getElementById("fmagValue");
 const fnetValue = document.getElementById("fnetValue");
 const ulimValue = document.getElementById("ulimValue");
@@ -39,7 +40,7 @@ const TRACK_LENGTH = 60;
 const VERTICAL_TRACK_LENGTH = 180;
 const ZERO_F_EPS = 0.01;
 const ZERO_A_EPS = 0.01;
-const G = 9.81;
+const G = 10;
 
 const state = {
   scenario: scenarioSelect.value,
@@ -112,7 +113,7 @@ function hasReachedTerminal() {
 }
 
 function applyScenarioDefaults() {
-  state.u = state.u0;
+  state.u = state.scenario === "vertical-gravity" ? 0 : state.u0;
 }
 
 function syncSlidersUI() {
@@ -121,7 +122,7 @@ function syncSlidersUI() {
   const verticalGravity = state.scenario === "vertical-gravity";
   fSlider.disabled = !withForce;
   aSlider.disabled = !uniformAccel;
-  u0Slider.disabled = false;
+  u0Slider.disabled = verticalGravity;
 
   bValue.textContent = state.B.toFixed(2);
   lValue.textContent = state.ell.toFixed(2);
@@ -161,6 +162,7 @@ function updateMeasurements() {
   aValue.textContent = state.a.toFixed(2);
   eValue.textContent = state.emf.toFixed(2);
   iValue.textContent = state.I.toFixed(2);
+  rMeasValue.textContent = state.R.toFixed(2);
   fmagValue.textContent = state.Fmag.toFixed(2);
   fnetValue.textContent = state.Fnet.toFixed(2);
 
@@ -288,15 +290,44 @@ function drawScene() {
 
   ctx.strokeStyle = "#324862";
   ctx.lineWidth = 5;
+  const connectorMid = (railTop + railBottom) / 2;
+  const resistorTop = connectorMid - 48;
+  const resistorBottom = connectorMid + 48;
   ctx.beginPath();
   ctx.moveTo(left, railTop);
+  ctx.lineTo(left, resistorTop);
+  ctx.moveTo(left, resistorBottom);
   ctx.lineTo(left, railBottom);
+  ctx.stroke();
+
+  // Resistor symbol on the left connector cable.
+  ctx.strokeStyle = "#1d3557";
+  ctx.lineWidth = 4;
+  const zigAmp = 13;
+  const zigSteps = 11;
+  const stepY = (resistorBottom - resistorTop) / zigSteps;
+  ctx.beginPath();
+  ctx.moveTo(left, resistorTop);
+  for (let i = 1; i < zigSteps; i += 1) {
+    const x = left + (i % 2 === 0 ? -zigAmp : zigAmp);
+    const y = resistorTop + i * stepY;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(left, resistorBottom);
   ctx.stroke();
 
   const xMin = left + 30;
   const xMax = right - 30;
   const trackLen = currentTrackLength();
-  const rodX = xMin + (Math.min(state.x, trackLen) / trackLen) * (xMax - xMin);
+  const clampedX = Math.max(0, Math.min(state.x, trackLen));
+  const rodX = xMin + (clampedX / trackLen) * (xMax - xMin);
+  const sweptWidth = Math.max(0, rodX - xMin);
+
+  if (sweptWidth > 0.5) {
+    // Subtle highlight of area swept by the rod inside the magnetic field.
+    ctx.fillStyle = "rgba(251, 133, 0, 0.15)";
+    ctx.fillRect(xMin, railTop + 6, sweptWidth, railBottom - railTop - 12);
+  }
 
   ctx.strokeStyle = "#e76f51";
   ctx.lineWidth = 10;
@@ -310,6 +341,7 @@ function drawScene() {
   ctx.fillText("B προς τα μέσα (×)", left + 20, railTop - 20);
   const speedLabel = hasReachedTerminal() ? "υορ" : "υ";
   ctx.fillText(`${speedLabel} = ${state.u.toFixed(2)} m/s`, rodX - 50, railBottom + 34);
+  ctx.fillText(`R = ${state.R.toFixed(2)} Ω`, left - 108, connectorMid + 6);
 
   if (state.showVectors) {
     const centerX = rodX;
@@ -356,17 +388,49 @@ function drawSceneVertical() {
   ctx.strokeStyle = "#4e6e8e";
   ctx.lineWidth = 8;
   ctx.lineCap = "round";
+  const topConnectorY = top;
+  const topMidX = (railLeft + railRight) / 2;
+  const resistorLeft = topMidX - 58;
+  const resistorRight = topMidX + 58;
   ctx.beginPath();
   ctx.moveTo(railLeft, top);
   ctx.lineTo(railLeft, bottom);
   ctx.moveTo(railRight, top);
   ctx.lineTo(railRight, bottom);
+  ctx.moveTo(railLeft, topConnectorY);
+  ctx.lineTo(resistorLeft, topConnectorY);
+  ctx.moveTo(resistorRight, topConnectorY);
+  ctx.lineTo(railRight, topConnectorY);
+  ctx.stroke();
+
+  // Resistor symbol on the top connector.
+  ctx.strokeStyle = "#1d3557";
+  ctx.lineWidth = 4;
+  const zigAmpY = 13;
+  const zigSteps = 9;
+  const stepX = (resistorRight - resistorLeft) / zigSteps;
+  ctx.beginPath();
+  ctx.moveTo(resistorLeft, topConnectorY);
+  for (let i = 1; i < zigSteps; i += 1) {
+    const x = resistorLeft + i * stepX;
+    const y = topConnectorY + (i % 2 === 0 ? -zigAmpY : zigAmpY);
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(resistorRight, topConnectorY);
   ctx.stroke();
 
   const yMin = top + 20;
   const yMax = bottom - 20;
   const trackLen = currentTrackLength();
-  const rodY = yMin + (Math.min(state.x, trackLen) / trackLen) * (yMax - yMin);
+  const clampedX = Math.max(0, Math.min(state.x, trackLen));
+  const rodY = yMin + (clampedX / trackLen) * (yMax - yMin);
+  const sweptHeight = Math.max(0, rodY - yMin);
+
+  if (sweptHeight > 0.5) {
+    // Subtle highlight of area swept by the rod inside the magnetic field.
+    ctx.fillStyle = "rgba(251, 133, 0, 0.15)";
+    ctx.fillRect(railLeft + 6, yMin, railRight - railLeft - 12, sweptHeight);
+  }
 
   ctx.strokeStyle = "#e76f51";
   ctx.lineWidth = 10;
@@ -380,7 +444,9 @@ function drawSceneVertical() {
   ctx.fillText("Κατακόρυφη κίνηση ράβδου", 40, 36);
   ctx.fillText("B προς τα μέσα (×)", 40, 60);
   const speedLabel = hasReachedTerminal() ? "υορ" : "υ";
-  ctx.fillText(`${speedLabel} = ${state.u.toFixed(2)} m/s`, 40, 84);
+  const speedY = Math.max(top + 18, Math.min(bottom - 10, rodY - 10));
+  ctx.fillText(`${speedLabel} = ${state.u.toFixed(2)} m/s`, railRight + 22, speedY);
+  ctx.fillText(`R = ${state.R.toFixed(2)} Ω`, topMidX - 42, topConnectorY - 24);
   ctx.fillText(`y = ${state.x.toFixed(2)} m`, 40, 108);
 
   if (state.showVectors) {
@@ -414,6 +480,15 @@ function integrate(dt) {
     const trackLen = currentTrackLength();
     if (state.x > trackLen) {
       state.x = trackLen;
+      if (state.u > 0) {
+        state.u = 0;
+      }
+      state.playing = false;
+    } else if (state.x < 0) {
+      state.x = 0;
+      if (state.u < 0) {
+        state.u = 0;
+      }
       state.playing = false;
     }
     recalcForces();
@@ -440,6 +515,15 @@ function integrate(dt) {
   const trackLen = currentTrackLength();
   if (state.x > trackLen) {
     state.x = trackLen;
+    if (state.u > 0) {
+      state.u = 0;
+    }
+    state.playing = false;
+  } else if (state.x < 0) {
+    state.x = 0;
+    if (state.u < 0) {
+      state.u = 0;
+    }
     state.playing = false;
   }
 
