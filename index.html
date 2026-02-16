@@ -17,11 +17,13 @@
           <option value="with-force" selected>Σταθερή εξωτερική δύναμη F</option>
           <option value="with-u0">Με αρχική ταχύτητα (F=0)</option>
           <option value="uniform-accel">Ομαλά μεταβαλλόμενη κίνηση (σταθερή α)</option>
+          <option value="constant-speed">Κίνηση με σταθερή ταχύτητα</option>
           <option value="vertical-gravity">Κατακόρυφη κίνηση με βάρος</option>
         </select>
 
         <label for="bSlider">Μαγνητικό πεδίο B: <span id="bValue">0.80</span> T</label>
         <input id="bSlider" type="range" min="0.1" max="2.5" step="0.05" value="0.80" />
+        <button id="bDirBtn" type="button">B: προς τα μέσα (×)</button>
 
         <label for="lSlider">Μήκος ράβδου ℓ: <span id="lValue">0.50</span> m</label>
         <input id="lSlider" type="range" min="0.2" max="1.5" step="0.05" value="0.50" />
@@ -32,7 +34,7 @@
         <label for="mSlider">Μάζα ράβδου m: <span id="mValue">0.50</span> kg</label>
         <input id="mSlider" type="range" min="0.2" max="2.0" step="0.05" value="0.50" />
 
-        <label for="u0Slider">Αρχική ταχύτητα υ₀: <span id="u0Value">10.0</span> m/s</label>
+        <label for="u0Slider"><span id="u0LabelText">Αρχική ταχύτητα υ₀</span>: <span id="u0Value">10.0</span> m/s</label>
         <input id="u0Slider" type="range" min="0" max="12" step="0.2" value="10.0" />
 
         <label for="fSlider">Εξωτερική δύναμη F: <span id="fValue">1.20</span> N</label>
@@ -45,6 +47,14 @@
           <input id="vectorsToggle" type="checkbox" checked />
           Εμφάνιση διανυσμάτων δυνάμεων
         </label>
+        <label class="check-row" for="basicVectorsToggle">
+          <input id="basicVectorsToggle" type="checkbox" />
+          Εμφάνιση μόνο βασικών διανυσμάτων
+        </label>
+        <label class="check-row" for="currentVectorsToggle">
+          <input id="currentVectorsToggle" type="checkbox" />
+          Εμφάνιση διανυσμάτων του I
+        </label>
 
         <div class="measurements">
           <h2>Μετρήσεις</h2>
@@ -54,9 +64,12 @@
           <p>Επιτάχυνση α: <span id="aValue">0.00</span> m/s²</p>
           <p>Επαγόμενη ΗΕΔ ε: <span id="eValue">0.00</span> V</p>
           <p>Ρεύμα I: <span id="iValue">0.00</span> A</p>
+          <p id="eqEmfLine">ε = Bℓυ = 0.00 V</p>
+          <p id="eqILine">I = ε/R = 0.00 A</p>
           <p>Αντίσταση R: <span id="rMeasValue">0.40</span> Ω</p>
           <p>Μαγνητική δύναμη F<sub>L</sub>: <span id="fmagValue">0.00</span> N</p>
-          <p>Συνισταμένη ΣF = F<sub>ext</sub> - F<sub>L</sub>: <span id="fnetValue">0.00</span> N</p>
+          <p>Συνισταμένη ΣF: <span id="fnetValue">0.00</span> N</p>
+          <p id="eqFLine">ΣF = F<sub>ext</sub> - F<sub>L</sub> = 0.00 N</p>
           <p>Οριακή ταχύτητα υ<sub>ορ</sub>: <span id="ulimValue">-</span></p>
           <p id="limitStatus" class="status">Κατάσταση: -</p>
         </div>
@@ -65,8 +78,7 @@
       <section class="panel sim-area">
         <canvas id="simCanvas" width="980" height="560" aria-label="Rod in magnetic field simulation"></canvas>
         <div class="canvas-controls">
-          <button id="playBtn" type="button">Play</button>
-          <button id="pauseBtn" type="button">Pause</button>
+          <button id="playPauseBtn" type="button">Play</button>
           <button id="resetBtn" type="button">Reset</button>
           <button id="slowBtn" type="button">Slow motion: Off</button>
         </div>
@@ -78,7 +90,7 @@
           <span><i class="fnet"></i>ΣF</span>
           <span><i class="vel"></i>υ</span>
           <span><i class="acc"></i>α</span>
-          <span><i class="bvec"></i>B (προς τα μέσα)</span>
+          <span><i class="bvec"></i>B</span>
         </div>
 
         <div class="instructions">

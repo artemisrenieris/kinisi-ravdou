@@ -10,9 +10,11 @@ const u0Slider = document.getElementById("u0Slider");
 const fSlider = document.getElementById("fSlider");
 const aSlider = document.getElementById("aSlider");
 const vectorsToggle = document.getElementById("vectorsToggle");
+const basicVectorsToggle = document.getElementById("basicVectorsToggle");
+const currentVectorsToggle = document.getElementById("currentVectorsToggle");
+const bDirBtn = document.getElementById("bDirBtn");
 
-const playBtn = document.getElementById("playBtn");
-const pauseBtn = document.getElementById("pauseBtn");
+const playPauseBtn = document.getElementById("playPauseBtn");
 const resetBtn = document.getElementById("resetBtn");
 const slowBtn = document.getElementById("slowBtn");
 
@@ -21,6 +23,7 @@ const lValue = document.getElementById("lValue");
 const rValue = document.getElementById("rValue");
 const mValue = document.getElementById("mValue");
 const u0Value = document.getElementById("u0Value");
+const u0LabelText = document.getElementById("u0LabelText");
 const fValue = document.getElementById("fValue");
 const aSetValue = document.getElementById("aSetValue");
 
@@ -31,9 +34,12 @@ const uValue = document.getElementById("uValue");
 const aValue = document.getElementById("aValue");
 const eValue = document.getElementById("eValue");
 const iValue = document.getElementById("iValue");
+const eqEmfLine = document.getElementById("eqEmfLine");
+const eqILine = document.getElementById("eqILine");
 const rMeasValue = document.getElementById("rMeasValue");
 const fmagValue = document.getElementById("fmagValue");
 const fnetValue = document.getElementById("fnetValue");
+const eqFLine = document.getElementById("eqFLine");
 const ulimValue = document.getElementById("ulimValue");
 const limitStatus = document.getElementById("limitStatus");
 const TRACK_LENGTH = 60;
@@ -52,6 +58,9 @@ const state = {
   Fext: Number(fSlider.value),
   aSet: Number(aSlider.value),
   showVectors: vectorsToggle.checked,
+  showBasicVectors: basicVectorsToggle.checked,
+  showCurrentVectors: currentVectorsToggle.checked,
+  Bdir: 1,
   playing: false,
   slowMotion: false,
   timeScale: 1,
@@ -75,6 +84,9 @@ function dampingK() {
 function effectiveFext() {
   if (state.scenario === "with-force") {
     return state.Fext;
+  }
+  if (state.scenario === "constant-speed") {
+    return state.FextDynamic;
   }
   if (state.scenario === "uniform-accel") {
     return state.FextDynamic;
@@ -123,6 +135,7 @@ function syncSlidersUI() {
   fSlider.disabled = !withForce;
   aSlider.disabled = !uniformAccel;
   u0Slider.disabled = verticalGravity;
+  u0LabelText.textContent = state.scenario === "constant-speed" ? "Σταθερή ταχύτητα υ" : "Αρχική ταχύτητα υ₀";
 
   bValue.textContent = state.B.toFixed(2);
   lValue.textContent = state.ell.toFixed(2);
@@ -137,6 +150,18 @@ function syncSlidersUI() {
   aSetValue.textContent = state.aSet.toFixed(2);
 }
 
+function syncPlayPauseUI() {
+  playPauseBtn.textContent = state.playing ? "Pause" : "Play";
+}
+
+function currentSense() {
+  const signU = Math.sign(state.u);
+  if (signU === 0 || state.I < 0.0001) {
+    return 0;
+  }
+  return -state.Bdir * signU;
+}
+
 function recalcForces() {
   state.emf = state.B * state.ell * Math.abs(state.u);
   state.I = state.emf / state.R;
@@ -147,6 +172,10 @@ function recalcForces() {
     state.Fnet = state.m * state.aSet;
     state.a = state.aSet;
     state.FextDynamic = state.Fnet - magneticSigned;
+  } else if (state.scenario === "constant-speed") {
+    state.a = 0;
+    state.Fnet = 0;
+    state.FextDynamic = -magneticSigned;
   } else {
     const F = drivingForce();
     state.Fnet = F + magneticSigned;
@@ -162,6 +191,8 @@ function updateMeasurements() {
   aValue.textContent = state.a.toFixed(2);
   eValue.textContent = state.emf.toFixed(2);
   iValue.textContent = state.I.toFixed(2);
+  eqEmfLine.textContent = `ε = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
+  eqILine.textContent = `I = ε/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
   rMeasValue.textContent = state.R.toFixed(2);
   fmagValue.textContent = state.Fmag.toFixed(2);
   fnetValue.textContent = state.Fnet.toFixed(2);
@@ -169,7 +200,15 @@ function updateMeasurements() {
   if (state.scenario === "uniform-accel") {
     uSymbol.textContent = "υ";
     ulimValue.textContent = "-";
-    limitStatus.textContent = "Κατάσταση: Ομαλά μεταβαλλόμενη κίνηση με σταθερή α.";
+    eqFLine.textContent = `ΣF = mα = ${state.m.toFixed(2)}·${state.aSet.toFixed(2)} = ${state.Fnet.toFixed(2)} N`;
+    limitStatus.textContent = "Κατάσταση: Ομαλά μεταβαλλόμενη κίνηση (ΣF = mα σταθερή).";
+    return;
+  }
+  if (state.scenario === "constant-speed") {
+    uSymbol.textContent = "υ";
+    ulimValue.textContent = "-";
+    eqFLine.textContent = `ΣF = Fext - F_L = ${effectiveFext().toFixed(2)} - ${state.Fmag.toFixed(2)} = ${state.Fnet.toFixed(2)} N`;
+    limitStatus.textContent = "Κατάσταση: Ευθύγραμμη ομαλή κίνηση (υ σταθερή, α = 0, ΣF = 0).";
     return;
   }
 
@@ -177,10 +216,16 @@ function updateMeasurements() {
   if (ulim === null) {
     uSymbol.textContent = "υ";
     ulimValue.textContent = "-";
-    limitStatus.textContent = "Κατάσταση: Δεν ορίζεται οριακή ταχύτητα (F=0).";
+    eqFLine.textContent = `ΣF = -F_L = ${state.Fnet.toFixed(2)} N`;
+    limitStatus.textContent = "Κατάσταση: F=0, η ράβδος επιβραδύνεται από τη μαγνητική δύναμη μέχρι υ≈0.";
     return;
   }
 
+  if (state.scenario === "vertical-gravity") {
+    eqFLine.textContent = `ΣF = mg - F_L = ${(state.m * G).toFixed(2)} - ${state.Fmag.toFixed(2)} = ${state.Fnet.toFixed(2)} N`;
+  } else {
+    eqFLine.textContent = `ΣF = Fext - F_L = ${effectiveFext().toFixed(2)} - ${state.Fmag.toFixed(2)} = ${state.Fnet.toFixed(2)} N`;
+  }
   ulimValue.textContent = `${ulim.toFixed(2)} m/s`;
   const atTerminal = hasReachedTerminal();
   if (atTerminal) {
@@ -244,21 +289,35 @@ function drawArrow(x, y, vx, vy, color, label) {
   ctx.fillText(label, tipX + 6, tipY - 6);
 }
 
-function drawFieldPattern(x0, y0, w, h) {
-  ctx.fillStyle = "#6a7800";
+function drawFieldPattern(x0, y0, w, h, intoPage) {
   for (let y = y0 + 18; y < y0 + h; y += 28) {
     for (let x = x0 + 18; x < x0 + w; x += 28) {
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#f7f9d4";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x - 3, y - 3);
-      ctx.lineTo(x + 3, y + 3);
-      ctx.moveTo(x + 3, y - 3);
-      ctx.lineTo(x - 3, y + 3);
-      ctx.stroke();
+      if (intoPage) {
+        ctx.fillStyle = "#6a7800";
+        ctx.fill();
+        ctx.strokeStyle = "#f7f9d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 3, y - 3);
+        ctx.lineTo(x + 3, y + 3);
+        ctx.moveTo(x + 3, y - 3);
+        ctx.lineTo(x - 3, y + 3);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = "#6a7800";
+        ctx.fill();
+        ctx.strokeStyle = "#f7f9d4";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.fillStyle = "#f7f9d4";
+        ctx.arc(x, y, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 }
@@ -276,7 +335,7 @@ function drawScene() {
   const railTop = 180;
   const railBottom = 420;
 
-  drawFieldPattern(left + 25, railTop + 15, right - left - 50, railBottom - railTop - 30);
+  drawFieldPattern(left + 25, railTop + 15, right - left - 50, railBottom - railTop - 30, state.Bdir > 0);
 
   ctx.strokeStyle = "#4e6e8e";
   ctx.lineWidth = 8;
@@ -338,36 +397,67 @@ function drawScene() {
 
   ctx.fillStyle = "#13233f";
   ctx.font = "bold 15px Arial";
-  ctx.fillText("B προς τα μέσα (×)", left + 20, railTop - 20);
+  ctx.fillText(state.Bdir > 0 ? "B προς τα μέσα (×)" : "B προς τα έξω (•)", left + 20, railTop - 20);
   const speedLabel = hasReachedTerminal() ? "υορ" : "υ";
   ctx.fillText(`${speedLabel} = ${state.u.toFixed(2)} m/s`, rodX - 50, railBottom + 34);
   ctx.fillText(`R = ${state.R.toFixed(2)} Ω`, left - 108, connectorMid + 6);
 
+  if (state.showCurrentVectors) {
+    const sense = currentSense();
+    if (sense !== 0) {
+      const clockwise = sense > 0;
+      const topY = railTop - 14;
+      const bottomY = railBottom + 14;
+      if (clockwise) {
+        drawArrow(left + 12, topY, 56, 0, "#1d3557", "");
+        drawArrow(rodX + 12, railTop + 12, 0, 52, "#1d3557", "");
+        drawArrow(rodX - 12, bottomY, -56, 0, "#1d3557", "");
+        drawArrow(left - 12, railBottom - 12, 0, -52, "#1d3557", "");
+      } else {
+        drawArrow(rodX - 12, topY, -56, 0, "#1d3557", "");
+        drawArrow(left - 12, railTop + 12, 0, 52, "#1d3557", "");
+        drawArrow(left + 12, bottomY, 56, 0, "#1d3557", "");
+        drawArrow(rodX + 12, railBottom - 12, 0, -52, "#1d3557", "");
+      }
+      ctx.fillStyle = "#1d3557";
+      ctx.font = "bold 14px Arial";
+      ctx.fillText(`I`, left - 24, railTop - 26);
+    }
+  }
+
   if (state.showVectors) {
     const centerX = rodX;
     const centerY = (railTop + railBottom) / 2;
+    const basicOnly = state.showBasicVectors;
 
     const F = effectiveFext();
     const fmagSigned = state.u === 0 ? 0 : -Math.sign(state.u) * state.Fmag;
-    const fExtLen = vectorLength(F, 60, 34, 220);
-    const fMagLen = vectorLength(fmagSigned, 60, 34, 220);
-    let fNetLen = vectorLength(state.Fnet, 65, 36, 240);
+    const forceScale = 48;
+    const fExtLen = vectorLength(F, forceScale, 34, 220);
+    const fMagLen = vectorLength(fmagSigned, forceScale, 34, 220);
+    let fNetLen = vectorLength(state.Fnet, forceScale, 36, 220);
     const velLen = vectorLength(state.u, 18, 34, 210);
     let accLen = vectorLength(state.a, 85, 30, 180);
 
-    if (state.scenario === "with-force") {
+    if (state.scenario !== "uniform-accel" && state.scenario !== "constant-speed") {
       const sharedInitialLen = 170;
-      const currentFnetAbs = Math.abs(state.Fnet);
-      const currentAAbs = Math.abs(state.a);
-      fNetLen = forceAccelSharedLength(currentFnetAbs, state.Fnet0Abs, sharedInitialLen);
-      accLen = forceAccelSharedLength(currentAAbs, state.Fnet0Abs / state.m, sharedInitialLen);
+      const referenceF = state.Fnet0Abs > 0 ? state.Fnet0Abs : Math.max(0.001, Math.abs(state.Fnet));
+      const referenceA = referenceF / state.m;
+      fNetLen = forceAccelSharedLength(Math.abs(state.Fnet), referenceF, sharedInitialLen);
+      accLen = forceAccelSharedLength(Math.abs(state.a), referenceA, sharedInitialLen);
     }
 
-    drawArrow(centerX, centerY - 55, Math.sign(F || 1) * fExtLen, 0, "#f28482", "Fext");
+    if (Math.abs(F) > 0.0001) {
+      drawArrow(centerX, centerY - 55, Math.sign(F || 1) * fExtLen, 0, "#f28482", "Fext");
+    }
     drawArrow(centerX, centerY - 20, Math.sign(fmagSigned || 1) * fMagLen, 0, "#457b9d", "Fₗ");
-    drawArrow(centerX, centerY + 15, Math.sign(state.Fnet || 1) * fNetLen, 0, "#2a9d8f", "ΣF");
+    if (!basicOnly) {
+      drawArrow(centerX, centerY + 15, Math.sign(state.Fnet || 1) * fNetLen, 0, "#2a9d8f", "ΣF");
+    }
     drawArrow(centerX, centerY + 55, Math.sign(state.u || 1) * velLen, 0, "#f77f00", "υ");
-    drawArrow(centerX, centerY + 90, Math.sign(state.a || 1) * accLen, 0, "#6a4c93", "α");
+    if (!basicOnly) {
+      drawArrow(centerX, centerY + 90, Math.sign(state.a || 1) * accLen, 0, "#6a4c93", "α");
+    }
   }
 
   ctx.fillStyle = "#0f1c33";
@@ -383,7 +473,7 @@ function drawSceneVertical() {
   const top = 90;
   const bottom = 500;
 
-  drawFieldPattern(railLeft + 12, top + 20, railRight - railLeft - 24, bottom - top - 40);
+  drawFieldPattern(railLeft + 12, top + 20, railRight - railLeft - 24, bottom - top - 40, state.Bdir > 0);
 
   ctx.strokeStyle = "#4e6e8e";
   ctx.lineWidth = 8;
@@ -442,29 +532,67 @@ function drawSceneVertical() {
   ctx.fillStyle = "#13233f";
   ctx.font = "bold 15px Arial";
   ctx.fillText("Κατακόρυφη κίνηση ράβδου", 40, 36);
-  ctx.fillText("B προς τα μέσα (×)", 40, 60);
+  ctx.fillText(state.Bdir > 0 ? "B προς τα μέσα (×)" : "B προς τα έξω (•)", 40, 60);
   const speedLabel = hasReachedTerminal() ? "υορ" : "υ";
   const speedY = Math.max(top + 18, Math.min(bottom - 10, rodY - 10));
   ctx.fillText(`${speedLabel} = ${state.u.toFixed(2)} m/s`, railRight + 22, speedY);
   ctx.fillText(`R = ${state.R.toFixed(2)} Ω`, topMidX - 42, topConnectorY - 24);
   ctx.fillText(`y = ${state.x.toFixed(2)} m`, 40, 108);
 
+  if (state.showCurrentVectors) {
+    const sense = currentSense();
+    if (sense !== 0) {
+      const clockwise = sense > 0;
+      const topY = topConnectorY - 14;
+      const bottomY = rodY + 14;
+      if (clockwise) {
+        drawArrow(railLeft + 12, topY, 58, 0, "#1d3557", "");
+        drawArrow(railRight + 12, top + 12, 0, 58, "#1d3557", "");
+        drawArrow(railRight - 12, bottomY, -58, 0, "#1d3557", "");
+        drawArrow(railLeft - 12, rodY - 12, 0, -58, "#1d3557", "");
+      } else {
+        drawArrow(railRight - 12, topY, -58, 0, "#1d3557", "");
+        drawArrow(railLeft - 12, top + 12, 0, 58, "#1d3557", "");
+        drawArrow(railLeft + 12, bottomY, 58, 0, "#1d3557", "");
+        drawArrow(railRight + 12, rodY - 12, 0, -58, "#1d3557", "");
+      }
+      ctx.fillStyle = "#1d3557";
+      ctx.font = "bold 14px Arial";
+      ctx.fillText(`I`, railLeft - 22, top - 26);
+    }
+  }
+
   if (state.showVectors) {
     const centerX = (railLeft + railRight) / 2;
     const centerY = rodY;
+    const basicOnly = state.showBasicVectors;
     const weight = state.m * G;
     const fmagSigned = state.u === 0 ? 0 : -Math.sign(state.u) * state.Fmag;
-    const fWeightLen = vectorLength(weight, 9, 28, 165);
-    const fMagLen = vectorLength(fmagSigned, 55, 28, 220);
-    const fNetLen = vectorLength(state.Fnet, 60, 28, 220);
+    // Use a common force scale so B, F_L, and ΣF are visually comparable.
+    const forceScale = 26;
+    const fWeightLen = vectorLength(weight, forceScale, 28, 190);
+    const fMagLen = vectorLength(fmagSigned, forceScale, 28, 190);
+    let fNetLen = vectorLength(state.Fnet, forceScale, 28, 190);
     const velLen = vectorLength(state.u, 16, 30, 200);
-    const accLen = vectorLength(state.a, 80, 28, 180);
+    let accLen = vectorLength(state.a, 80, 28, 180);
+
+    if (state.scenario !== "uniform-accel" && state.scenario !== "constant-speed") {
+      const sharedInitialLen = 150;
+      const referenceF = state.Fnet0Abs > 0 ? state.Fnet0Abs : Math.max(0.001, Math.abs(state.Fnet));
+      const referenceA = referenceF / state.m;
+      fNetLen = forceAccelSharedLength(Math.abs(state.Fnet), referenceF, sharedInitialLen);
+      accLen = forceAccelSharedLength(Math.abs(state.a), referenceA, sharedInitialLen);
+    }
 
     drawArrow(centerX - 90, centerY, 0, fWeightLen, "#d62828", "Β");
     drawArrow(centerX - 45, centerY, 0, Math.sign(fmagSigned || 1) * fMagLen, "#457b9d", "Fₗ");
-    drawArrow(centerX, centerY, 0, Math.sign(state.Fnet || 1) * fNetLen, "#2a9d8f", "ΣF");
+    if (!basicOnly) {
+      drawArrow(centerX, centerY, 0, Math.sign(state.Fnet || 1) * fNetLen, "#2a9d8f", "ΣF");
+    }
     drawArrow(centerX + 45, centerY, 0, Math.sign(state.u || 1) * velLen, "#f77f00", "υ");
-    drawArrow(centerX + 90, centerY, 0, Math.sign(state.a || 1) * accLen, "#6a4c93", "α");
+    if (!basicOnly) {
+      drawArrow(centerX + 90, centerY, 0, Math.sign(state.a || 1) * accLen, "#6a4c93", "α");
+    }
   }
 }
 
@@ -494,6 +622,21 @@ function integrate(dt) {
     recalcForces();
     return;
   }
+  if (state.scenario === "constant-speed") {
+    state.u = state.u0;
+    state.x += state.u * dt;
+    state.t += dt;
+    const trackLen = currentTrackLength();
+    if (state.x > trackLen) {
+      state.x = trackLen;
+      state.playing = false;
+    } else if (state.x < 0) {
+      state.x = 0;
+      state.playing = false;
+    }
+    recalcForces();
+    return;
+  }
 
   const k = dampingK();
   const F = drivingForce();
@@ -506,6 +649,10 @@ function integrate(dt) {
   state.u = uInf + (oldU - uInf) * decay;
   if (Math.abs(state.u) < 0.0005) {
     state.u = 0;
+  }
+  if (state.scenario === "with-u0" && Math.abs(state.u) < 0.02) {
+    state.u = 0;
+    state.playing = false;
   }
 
   // Exact displacement over dt from the same linear ODE solution.
@@ -545,6 +692,7 @@ function tick(timestamp) {
   }
 
   syncSlidersUI();
+  syncPlayPauseUI();
   updateMeasurements();
   drawScene();
   requestAnimationFrame(tick);
@@ -557,6 +705,7 @@ function resetSimulation() {
   applyScenarioDefaults();
   recalcForces();
   state.Fnet0Abs = Math.abs(state.Fnet);
+  syncPlayPauseUI();
   updateMeasurements();
   drawScene();
 }
@@ -584,7 +733,10 @@ mSlider.addEventListener("input", () => {
 
 u0Slider.addEventListener("input", () => {
   state.u0 = Number(u0Slider.value);
-  if (!state.playing) {
+  if (state.scenario === "constant-speed") {
+    state.u = state.u0;
+  }
+  if (!state.playing || state.scenario === "constant-speed") {
     applyScenarioDefaults();
   }
 });
@@ -607,16 +759,26 @@ vectorsToggle.addEventListener("change", () => {
   state.showVectors = vectorsToggle.checked;
 });
 
-playBtn.addEventListener("click", () => {
-  if (state.t === 0) {
+basicVectorsToggle.addEventListener("change", () => {
+  state.showBasicVectors = basicVectorsToggle.checked;
+});
+
+currentVectorsToggle.addEventListener("change", () => {
+  state.showCurrentVectors = currentVectorsToggle.checked;
+});
+
+bDirBtn.addEventListener("click", () => {
+  state.Bdir *= -1;
+  bDirBtn.textContent = state.Bdir > 0 ? "B: προς τα μέσα (×)" : "B: προς τα έξω (•)";
+});
+
+playPauseBtn.addEventListener("click", () => {
+  if (!state.playing && state.t === 0) {
     recalcForces();
     state.Fnet0Abs = Math.abs(state.Fnet);
   }
-  state.playing = true;
-});
-
-pauseBtn.addEventListener("click", () => {
-  state.playing = false;
+  state.playing = !state.playing;
+  syncPlayPauseUI();
 });
 
 resetBtn.addEventListener("click", resetSimulation);
