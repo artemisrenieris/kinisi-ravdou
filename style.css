@@ -146,6 +146,10 @@ button:active {
   color: #1d3557;
 }
 
+#limitStatus {
+  display: none;
+}
+
 .sim-area {
   padding: 0.75rem;
   display: grid;

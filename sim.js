@@ -379,6 +379,32 @@ function drawArrow(x, y, vx, vy, color, label) {
   ctx.fillText(label, tipX + 6, tipY - 6);
 }
 
+function drawCanvasStatus(text) {
+  if (!text || text === "Κατάσταση: -") {
+    return;
+  }
+  const padX = 12;
+  const boxY = 10;
+  ctx.font = "bold 14px Arial";
+  const metrics = ctx.measureText(text);
+  const boxW = Math.min(canvas.width - 24, metrics.width + padX * 2);
+  const boxH = 28;
+  const boxX = (canvas.width - boxW) / 2;
+
+  ctx.fillStyle = "rgba(255,255,255,0.86)";
+  ctx.strokeStyle = "#b7c7da";
+  ctx.lineWidth = 1.2;
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  ctx.fillStyle = "#1d3557";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, boxX + boxW / 2, boxY + boxH / 2 + 0.5, boxW - padX * 2);
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
+}
+
 function drawFieldPattern(x0, y0, w, h, intoPage) {
   for (let y = y0 + 18; y < y0 + h; y += 28) {
     for (let x = x0 + 18; x < x0 + w; x += 28) {
@@ -553,6 +579,7 @@ function drawScene() {
   ctx.fillStyle = "#0f1c33";
   ctx.font = "14px Arial";
   ctx.fillText(`x = ${state.x.toFixed(2)} m`, right - 110, railTop - 20);
+  drawCanvasStatus(limitStatus.textContent);
 }
 
 function drawSceneVertical() {
@@ -684,6 +711,7 @@ function drawSceneVertical() {
       drawArrow(centerX + 90, centerY, 0, Math.sign(state.a || 1) * accLen, "#6a4c93", "α");
     }
   }
+  drawCanvasStatus(limitStatus.textContent);
 }
 
 function drawMiniSeriesBox(x, y, w, h, label, points, key, color, minVal, maxVal, tMax) {
