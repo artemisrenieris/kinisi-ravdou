@@ -669,13 +669,6 @@ function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMa
   const plotW = w - 16;
   const plotH = h - 28;
 
-  dctx.strokeStyle = "#d3deeb";
-  dctx.lineWidth = 1;
-  dctx.beginPath();
-  dctx.moveTo(plotX, plotY + plotH / 2);
-  dctx.lineTo(plotX + plotW, plotY + plotH / 2);
-  dctx.stroke();
-
   if (points.length < 2 || maxVal - minVal < 1e-9 || tMax <= 0) {
     return;
   }
@@ -801,7 +794,7 @@ function drawDiagnosticsPanel() {
     drawPowerBars(pad, pad * 2 + graphH, fullW, barsH);
     drawFormulaBox(pad, pad * 3 + graphH + barsH, fullW, formulaH);
   } else {
-    const leftW = Math.floor(diagCanvas.width * 0.55);
+    const leftW = Math.floor(diagCanvas.width * 0.50);
     const rightW = diagCanvas.width - leftW - pad * 3;
     const gx = pad;
     const gy = pad;
@@ -810,8 +803,9 @@ function drawDiagnosticsPanel() {
     drawMiniSeriesBox(gx, gy, gw, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
 
     const rightX = gx + gw + pad;
-    drawPowerBars(rightX, gy, rightW, 150);
-    drawFormulaBox(rightX, gy + 156, rightW, 140);
+    const barsH = 165;
+    drawPowerBars(rightX, gy, rightW, barsH);
+    drawFormulaBox(rightX, gy + barsH + 8, rightW, diagCanvas.height - (gy + barsH + 8) - pad);
   }
 }
 
@@ -827,15 +821,9 @@ function integrate(dt) {
     const trackLen = currentTrackLength();
     if (state.x > trackLen) {
       state.x = trackLen;
-      if (state.u > 0) {
-        state.u = 0;
-      }
       state.playing = false;
     } else if (state.x < 0) {
       state.x = 0;
-      if (state.u < 0) {
-        state.u = 0;
-      }
       state.playing = false;
     }
     recalcForces();
@@ -885,15 +873,9 @@ function integrate(dt) {
   const trackLen = currentTrackLength();
   if (state.x > trackLen) {
     state.x = trackLen;
-    if (state.u > 0) {
-      state.u = 0;
-    }
     state.playing = false;
   } else if (state.x < 0) {
     state.x = 0;
-    if (state.u < 0) {
-      state.u = 0;
-    }
     state.playing = false;
   }
 
