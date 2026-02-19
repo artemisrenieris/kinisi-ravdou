@@ -165,7 +165,7 @@ button:active {
 #diagCanvas {
   width: 100%;
   height: auto;
-  aspect-ratio: 980 / 320;
+  aspect-ratio: 980 / 360;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: linear-gradient(180deg, #fcfeff 0%, #eef4fb 100%);
@@ -262,5 +262,9 @@ button:active {
   .canvas-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
+  }
+
+  #diagCanvas {
+    aspect-ratio: 980 / 560;
   }
 }

@@ -704,9 +704,14 @@ function drawPowerBars(x, y, w, h) {
   const values = [state.pExt, state.pJoule, state.pKDot];
   const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
   const zeroY = y + h * 0.62;
-  const barW = 42;
-  const gap = 28;
-  const startX = x + 18;
+  const innerPad = 10;
+  const gaugeW = 18;
+  const gap = 10;
+  const barAreaW = Math.max(90, w - innerPad * 3 - gaugeW - gap * 2);
+  const barW = Math.max(20, barAreaW / 3);
+  const startX = x + innerPad;
+  const labelFont = barW < 34 ? "bold 10px Arial" : "bold 11px Arial";
+  const valueFont = barW < 34 ? "10px Arial" : "bold 11px Arial";
 
   dctx.strokeStyle = "#c8d7e8";
   dctx.beginPath();
@@ -721,15 +726,15 @@ function drawPowerBars(x, y, w, h) {
     dctx.fillStyle = colors[i];
     dctx.fillRect(bx, by, barW, bh);
     dctx.fillStyle = "#233c5b";
-    dctx.font = "bold 11px Arial";
-    dctx.fillText(labels[i], bx - 2, y + h - 10);
-    dctx.fillText(v.toFixed(2), bx - 4, v >= 0 ? by - 5 : by + bh + 13);
+    dctx.font = labelFont;
+    dctx.fillText(labels[i], bx, y + h - 10);
+    dctx.font = valueFont;
+    dctx.fillText(v.toFixed(2), bx, v >= 0 ? by - 5 : by + bh + 12);
   });
 
   // Heat gauge (Q = integral of I^2R dt)
-  const gaugeX = x + w - 70;
-  const gaugeY = y + 18;
-  const gaugeW = 20;
+  const gaugeX = x + w - innerPad - gaugeW;
+  const gaugeY = y + 14;
   const gaugeH = h - 36;
   const qMax = Math.max(5, state.heatJ * 1.2);
   const fill = (state.heatJ / qMax) * gaugeH;
@@ -741,8 +746,8 @@ function drawPowerBars(x, y, w, h) {
   dctx.fillRect(gaugeX + 2, gaugeY + gaugeH - fill + 2, gaugeW - 4, Math.max(0, fill - 4));
   dctx.fillStyle = "#233c5b";
   dctx.font = "bold 11px Arial";
-  dctx.fillText("Q", gaugeX + 3, gaugeY - 6);
-  dctx.fillText(`${state.heatJ.toFixed(1)} J`, gaugeX - 20, gaugeY + gaugeH + 14);
+  dctx.fillText("Q", gaugeX + 3, gaugeY - 4);
+  dctx.fillText(`${state.heatJ.toFixed(1)} J`, gaugeX - 18, gaugeY + gaugeH + 14);
 }
 
 function drawFormulaBox(x, y, w, h) {
@@ -755,11 +760,16 @@ function drawFormulaBox(x, y, w, h) {
   dctx.fillStyle = "#223854";
   dctx.font = "bold 12px Arial";
   dctx.fillText("Live σχέσεις", x + 8, y + 15);
-  dctx.font = "12px Arial";
+  dctx.font = w < 300 ? "11px Arial" : "12px Arial";
   const fLcalc = dampingK() * Math.abs(state.u);
-  const l1 = `ε = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
-  const l2 = `I = ε/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
-  const l3 = `F_L = (B²ℓ²/R)υ = ${fLcalc.toFixed(2)} N`;
+  const compact = w < 300;
+  const l1 = compact
+    ? `ε = ${state.emf.toFixed(2)} V   (Bℓυ)`
+    : `ε = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
+  const l2 = compact
+    ? `I = ${state.I.toFixed(2)} A   (ε/R)`
+    : `I = ε/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
+  const l3 = compact ? `F_L = ${fLcalc.toFixed(2)} N` : `F_L = (B²ℓ²/R)υ = ${fLcalc.toFixed(2)} N`;
   const l4 = `Pηλ = I²R = ${(state.pJoule).toFixed(2)} W`;
   dctx.fillText(l1, x + 8, y + 34);
   dctx.fillText(l2, x + 8, y + 52);
@@ -775,17 +785,28 @@ function drawDiagnosticsPanel() {
   dctx.clearRect(0, 0, diagCanvas.width, diagCanvas.height);
 
   const pad = 12;
-  const leftW = Math.floor(diagCanvas.width * 0.55);
-  const rightW = diagCanvas.width - leftW - pad * 3;
-  const gx = pad;
-  const gy = pad;
-  const gw = leftW;
-  const graphH = diagCanvas.height - pad * 2;
-  drawMiniSeriesBox(gx, gy, gw, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
+  const narrow = diagCanvas.width < 760;
+  if (narrow) {
+    const fullW = diagCanvas.width - pad * 2;
+    const graphH = Math.floor(diagCanvas.height * 0.47);
+    const barsH = Math.floor(diagCanvas.height * 0.23);
+    const formulaH = diagCanvas.height - graphH - barsH - pad * 4;
+    drawMiniSeriesBox(pad, pad, fullW, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
+    drawPowerBars(pad, pad * 2 + graphH, fullW, barsH);
+    drawFormulaBox(pad, pad * 3 + graphH + barsH, fullW, formulaH);
+  } else {
+    const leftW = Math.floor(diagCanvas.width * 0.55);
+    const rightW = diagCanvas.width - leftW - pad * 3;
+    const gx = pad;
+    const gy = pad;
+    const gw = leftW;
+    const graphH = diagCanvas.height - pad * 2;
+    drawMiniSeriesBox(gx, gy, gw, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
 
-  const rightX = gx + gw + pad;
-  drawPowerBars(rightX, gy, rightW, 150);
-  drawFormulaBox(rightX, gy + 156, rightW, 140);
+    const rightX = gx + gw + pad;
+    drawPowerBars(rightX, gy, rightW, 150);
+    drawFormulaBox(rightX, gy + 156, rightW, 140);
+  }
 }
 
 function integrate(dt) {
