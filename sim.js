@@ -83,8 +83,8 @@ const state = {
   pJoule: 0,
   pKDot: 0,
   iTrace: [],
-  iMin: 0,
-  iMax: 1,
+  iMin: -0.2,
+  iMax: 0.2,
   tAxisMax: 8
 };
 
@@ -127,8 +127,8 @@ function pushHistory() {
 
 function updateTraceBounds() {
   if (state.iTrace.length === 0) {
-    state.iMin = -0.1;
-    state.iMax = 0.1;
+    state.iMin = -0.2;
+    state.iMax = 0.2;
     state.tAxisMax = 8;
     return;
   }
@@ -138,8 +138,14 @@ function updateTraceBounds() {
   const iMax = Math.max(...iValues);
   const span = Math.max(0.15, iMax - iMin);
   const pad = 0.18 * span;
-  state.iMin = iMin - pad;
-  state.iMax = iMax + pad;
+  if (state.iTrace.length <= 1) {
+    state.iMin = iMin - pad;
+    state.iMax = iMax + pad;
+  } else {
+    // Keep Y-axis stable (expand only when needed) so waveform shape is not visually distorted.
+    state.iMin = Math.min(state.iMin, iMin - pad);
+    state.iMax = Math.max(state.iMax, iMax + pad);
+  }
   state.tAxisMax = Math.max(8, state.t);
 }
 
@@ -655,7 +661,7 @@ function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMa
   dctx.strokeRect(x, y, w, h);
 
   dctx.fillStyle = "#2a3f5e";
-  dctx.font = "bold 12px Arial";
+  dctx.font = "bold 14px Arial";
   dctx.fillText(label, x + 8, y + 15);
 
   const plotX = x + 8;
@@ -678,7 +684,7 @@ function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMa
   const toY = (v) => plotY + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
 
   dctx.strokeStyle = color;
-  dctx.lineWidth = 2;
+  dctx.lineWidth = 2.6;
   dctx.beginPath();
   points.forEach((p, i) => {
     const px = toX(p.t);
@@ -710,8 +716,8 @@ function drawPowerBars(x, y, w, h) {
   const barAreaW = Math.max(90, w - innerPad * 3 - gaugeW - gap * 2);
   const barW = Math.max(20, barAreaW / 3);
   const startX = x + innerPad;
-  const labelFont = barW < 34 ? "bold 10px Arial" : "bold 11px Arial";
-  const valueFont = barW < 34 ? "10px Arial" : "bold 11px Arial";
+  const labelFont = barW < 34 ? "bold 11px Arial" : "bold 12px Arial";
+  const valueFont = barW < 34 ? "11px Arial" : "bold 12px Arial";
 
   dctx.strokeStyle = "#c8d7e8";
   dctx.beginPath();
@@ -745,7 +751,7 @@ function drawPowerBars(x, y, w, h) {
   dctx.fillStyle = "#ff7b00";
   dctx.fillRect(gaugeX + 2, gaugeY + gaugeH - fill + 2, gaugeW - 4, Math.max(0, fill - 4));
   dctx.fillStyle = "#233c5b";
-  dctx.font = "bold 11px Arial";
+  dctx.font = "bold 12px Arial";
   dctx.fillText("Q", gaugeX + 3, gaugeY - 4);
   dctx.fillText(`${state.heatJ.toFixed(1)} J`, gaugeX - 18, gaugeY + gaugeH + 14);
 }
@@ -758,9 +764,9 @@ function drawFormulaBox(x, y, w, h) {
   dctx.strokeRect(x, y, w, h);
 
   dctx.fillStyle = "#223854";
-  dctx.font = "bold 12px Arial";
+  dctx.font = "bold 14px Arial";
   dctx.fillText("Live σχέσεις", x + 8, y + 15);
-  dctx.font = w < 300 ? "11px Arial" : "12px Arial";
+  dctx.font = w < 300 ? "12px Arial" : "13px Arial";
   const fLcalc = dampingK() * Math.abs(state.u);
   const compact = w < 300;
   const l1 = compact
@@ -924,8 +930,8 @@ function resetSimulation() {
   state.x = 0;
   state.heatJ = 0;
   state.iTrace = [];
-  state.iMin = 0;
-  state.iMax = 1;
+  state.iMin = -0.2;
+  state.iMax = 0.2;
   state.tAxisMax = 8;
   applyScenarioDefaults();
   recalcForces();
