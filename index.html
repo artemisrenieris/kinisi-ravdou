@@ -58,7 +58,7 @@
         </label>
         <label class="check-row" for="currentVectorsToggle">
           <input id="currentVectorsToggle" type="checkbox" />
-          Εμφάνιση διανυσμάτων του I
+          Εμφάνιση διανυσμάτων του I<sub>επ</sub>
         </label>
 
         <div class="measurements">
@@ -67,10 +67,10 @@
           <p>Θέση x: <span id="xValue">0.00</span> m</p>
           <p>Ταχύτητα <span id="uSymbol">υ</span>: <span id="uValue">0.00</span> m/s</p>
           <p>Επιτάχυνση α: <span id="aValue">0.00</span> m/s²</p>
-          <p>Επαγόμενη ΗΕΔ ε: <span id="eValue">0.00</span> V</p>
-          <p>Ρεύμα I: <span id="iValue">0.00</span> A</p>
-          <p id="eqEmfLine">ε = Bℓυ = 0.00 V</p>
-          <p id="eqILine">I = ε/R = 0.00 A</p>
+          <p>Επαγόμενη ΗΕΔ E<sub>επ</sub>: <span id="eValue">0.00</span> V</p>
+          <p>Ρεύμα I<sub>επ</sub>: <span id="iValue">0.00</span> A</p>
+          <p id="eqEmfLine">E<sub>επ</sub> = Bℓυ = 0.00 V</p>
+          <p id="eqILine">I<sub>επ</sub> = E<sub>επ</sub>/R = 0.00 A</p>
           <p>Αντίσταση R: <span id="rMeasValue">0.40</span> Ω</p>
           <p>Μαγνητική δύναμη F<sub>L</sub>: <span id="fmagValue">0.00</span> N</p>
           <p>Συνισταμένη ΣF: <span id="fnetValue">0.00</span> N</p>
@@ -86,6 +86,13 @@
           <button id="playPauseBtn" type="button">Play</button>
           <button id="resetBtn" type="button">Reset</button>
           <button id="slowBtn" type="button">Slow motion: Off</button>
+          <select id="graphModeSelect" aria-label="Επιλογή γραφικής">
+            <option value="i" selected>I<sub>επ</sub> - t</option>
+            <option value="e">E<sub>επ</sub> - t</option>
+            <option value="u">υ - t</option>
+            <option value="a">α - t</option>
+            <option value="fl">F<sub>L</sub> - t</option>
+          </select>
         </div>
         <canvas id="diagCanvas" width="980" height="480" aria-label="Diagnostics charts and formulas"></canvas>
 
@@ -101,8 +108,8 @@
 
         <div class="instructions">
           <h2>Σχέσεις (Γ' Λυκείου)</h2>
-          <p>ε = Bℓυ, I = ε/R</p>
-          <p>F<sub>L</sub> = B I ℓ = (B²ℓ²/R)υ (αντίθετη της υ)</p>
+          <p>E<sub>επ</sub> = Bℓυ, I<sub>επ</sub> = E<sub>επ</sub>/R</p>
+          <p>F<sub>L</sub> = B I<sub>επ</sub> ℓ = (B²ℓ²/R)υ (αντίθετη της υ)</p>
           <p>m·dυ/dt = F<sub>ext</sub> - F<sub>L</sub> και α = dυ/dt</p>
           <p>Αν F<sub>ext</sub> σταθερή: υ<sub>ορ</sub> = F<sub>ext</sub>R/(B²ℓ²)</p>
           <p>Κατακόρυφα: m·dυ/dt = mg - F<sub>L</sub>, υ<sub>ορ</sub> = mgR/(B²ℓ²)</p>

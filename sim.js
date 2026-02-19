@@ -19,6 +19,7 @@ const bDirBtn = document.getElementById("bDirBtn");
 const playPauseBtn = document.getElementById("playPauseBtn");
 const resetBtn = document.getElementById("resetBtn");
 const slowBtn = document.getElementById("slowBtn");
+const graphModeSelect = document.getElementById("graphModeSelect");
 
 const bValue = document.getElementById("bValue");
 const lValue = document.getElementById("lValue");
@@ -82,11 +83,28 @@ const state = {
   pExt: 0,
   pJoule: 0,
   pKDot: 0,
+  graphMode: graphModeSelect ? graphModeSelect.value : "i",
   iTrace: [],
   iMin: -0.2,
   iMax: 0.2,
   tAxisMax: 8
 };
+
+function graphSeriesConfig() {
+  switch (state.graphMode) {
+    case "e":
+      return { key: "e", label: "Eεπ(t) [V]", color: "#c1121f" };
+    case "u":
+      return { key: "u", label: "υ(t) [m/s]", color: "#f77f00" };
+    case "a":
+      return { key: "a", label: "α(t) [m/s²]", color: "#6a4c93" };
+    case "fl":
+      return { key: "fl", label: "F_L(t) [N]", color: "#457b9d" };
+    case "i":
+    default:
+      return { key: "i", label: "Iεπ(t) [A]", color: "#1d3557" };
+  }
+}
 
 function dampingK() {
   return (state.B * state.B * state.ell * state.ell) / state.R;
@@ -117,7 +135,14 @@ function currentTrackLength() {
 }
 
 function pushHistory() {
-  state.iTrace.push({ t: state.t, i: state.I });
+  state.iTrace.push({
+    t: state.t,
+    i: state.I,
+    e: state.emf,
+    u: state.u,
+    a: state.a,
+    fl: state.Fmag
+  });
   if (state.iTrace.length > TRACE_MAX) {
     state.iTrace.shift();
   }
@@ -133,7 +158,8 @@ function updateTraceBounds() {
     return;
   }
 
-  const iValues = state.iTrace.map((p) => p.i);
+  const { key } = graphSeriesConfig();
+  const iValues = state.iTrace.map((p) => p[key]);
   const iMin = Math.min(...iValues);
   const iMax = Math.max(...iValues);
   const span = Math.max(0.15, iMax - iMin);
@@ -150,7 +176,14 @@ function updateTraceBounds() {
 }
 
 function resetTraceAtCurrentTime() {
-  state.iTrace = [{ t: state.t, i: state.I }];
+  state.iTrace = [{
+    t: state.t,
+    i: state.I,
+    e: state.emf,
+    u: state.u,
+    a: state.a,
+    fl: state.Fmag
+  }];
   updateTraceBounds();
 }
 
@@ -248,8 +281,8 @@ function updateMeasurements() {
   aValue.textContent = state.a.toFixed(2);
   eValue.textContent = state.emf.toFixed(2);
   iValue.textContent = state.I.toFixed(2);
-  eqEmfLine.textContent = `ε = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
-  eqILine.textContent = `I = ε/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
+  eqEmfLine.innerHTML = `E<sub>επ</sub> = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
+  eqILine.innerHTML = `I<sub>επ</sub> = E<sub>επ</sub>/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
   rMeasValue.textContent = state.R.toFixed(2);
   fmagValue.textContent = state.Fmag.toFixed(2);
   fnetValue.textContent = state.Fnet.toFixed(2);
@@ -478,7 +511,7 @@ function drawScene() {
       }
       ctx.fillStyle = "#1d3557";
       ctx.font = "bold 14px Arial";
-      ctx.fillText(`I`, left - 24, railTop - 26);
+      ctx.fillText(`Iεπ`, left - 28, railTop - 26);
     }
   }
 
@@ -507,7 +540,7 @@ function drawScene() {
     if (Math.abs(F) > 0.0001) {
       drawArrow(centerX, centerY - 55, Math.sign(F || 1) * fExtLen, 0, "#f28482", "Fext");
     }
-    drawArrow(centerX, centerY - 20, Math.sign(fmagSigned || 1) * fMagLen, 0, "#457b9d", "Fₗ");
+    drawArrow(centerX, centerY - 20, Math.sign(fmagSigned || 1) * fMagLen, 0, "#457b9d", "F_L");
     if (!basicOnly) {
       drawArrow(centerX, centerY + 15, Math.sign(state.Fnet || 1) * fNetLen, 0, "#2a9d8f", "ΣF");
     }
@@ -615,7 +648,7 @@ function drawSceneVertical() {
       }
       ctx.fillStyle = "#1d3557";
       ctx.font = "bold 14px Arial";
-      ctx.fillText(`I`, railLeft - 22, top - 26);
+      ctx.fillText(`Iεπ`, railLeft - 28, top - 26);
     }
   }
 
@@ -642,7 +675,7 @@ function drawSceneVertical() {
     }
 
     drawArrow(centerX - 90, centerY, 0, fWeightLen, "#d62828", "Β");
-    drawArrow(centerX - 45, centerY, 0, Math.sign(fmagSigned || 1) * fMagLen, "#457b9d", "Fₗ");
+    drawArrow(centerX - 45, centerY, 0, Math.sign(fmagSigned || 1) * fMagLen, "#457b9d", "F_L");
     if (!basicOnly) {
       drawArrow(centerX, centerY, 0, Math.sign(state.Fnet || 1) * fNetLen, "#2a9d8f", "ΣF");
     }
@@ -653,7 +686,7 @@ function drawSceneVertical() {
   }
 }
 
-function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMax) {
+function drawMiniSeriesBox(x, y, w, h, label, points, key, color, minVal, maxVal, tMax) {
   dctx.strokeStyle = "#b5c5d9";
   dctx.fillStyle = "rgba(255,255,255,0.9)";
   dctx.lineWidth = 1.2;
@@ -664,9 +697,9 @@ function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMa
   dctx.font = "bold 14px Arial";
   dctx.fillText(label, x + 8, y + 15);
 
-  const plotX = x + 8;
+  const plotX = x + 56;
   const plotY = y + 22;
-  const plotW = w - 16;
+  const plotW = w - 64;
   const plotH = h - 28;
 
   if (points.length < 2 || maxVal - minVal < 1e-9 || tMax <= 0) {
@@ -676,12 +709,28 @@ function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMa
   const toX = (t) => plotX + (t / tMax) * plotW;
   const toY = (v) => plotY + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
 
+  const yTicks = 5;
+  dctx.font = "11px Arial";
+  dctx.fillStyle = "#34506f";
+  dctx.strokeStyle = "#d6e0eb";
+  dctx.lineWidth = 1;
+  for (let i = 0; i <= yTicks; i += 1) {
+    const frac = i / yTicks;
+    const yv = maxVal - frac * (maxVal - minVal);
+    const py = plotY + frac * plotH;
+    dctx.beginPath();
+    dctx.moveTo(plotX, py);
+    dctx.lineTo(plotX + plotW, py);
+    dctx.stroke();
+    dctx.fillText(yv.toFixed(2), x + 6, py + 4);
+  }
+
   dctx.strokeStyle = color;
   dctx.lineWidth = 2.6;
   dctx.beginPath();
   points.forEach((p, i) => {
     const px = toX(p.t);
-    const py = toY(p.i);
+    const py = toY(p[key]);
     if (i === 0) {
       dctx.moveTo(px, py);
     } else {
@@ -689,6 +738,29 @@ function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMa
     }
   });
   dctx.stroke();
+
+  const latest = points[points.length - 1];
+  if (latest) {
+    const yNow = toY(latest[key]);
+    const valueNow = latest[key];
+    dctx.save();
+    dctx.setLineDash([5, 4]);
+    dctx.strokeStyle = "rgba(42, 63, 94, 0.55)";
+    dctx.lineWidth = 1.3;
+    dctx.beginPath();
+    dctx.moveTo(plotX, yNow);
+    dctx.lineTo(plotX + plotW, yNow);
+    dctx.stroke();
+    dctx.restore();
+
+    dctx.fillStyle = "#2a3f5e";
+    dctx.font = "bold 11px Arial";
+    dctx.textAlign = "right";
+    dctx.textBaseline = "middle";
+    dctx.fillText(valueNow.toFixed(2), plotX + plotW - 4, yNow - 8);
+    dctx.textAlign = "start";
+    dctx.textBaseline = "alphabetic";
+  }
 }
 
 function drawPowerBars(x, y, w, h) {
@@ -763,11 +835,11 @@ function drawFormulaBox(x, y, w, h) {
   const fLcalc = dampingK() * Math.abs(state.u);
   const compact = w < 300;
   const l1 = compact
-    ? `ε = ${state.emf.toFixed(2)} V   (Bℓυ)`
-    : `ε = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
+    ? `Eεπ = ${state.emf.toFixed(2)} V   (Bℓυ)`
+    : `Eεπ = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
   const l2 = compact
-    ? `I = ${state.I.toFixed(2)} A   (ε/R)`
-    : `I = ε/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
+    ? `Iεπ = ${state.I.toFixed(2)} A   (Eεπ/R)`
+    : `Iεπ = Eεπ/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
   const l3 = compact ? `F_L = ${fLcalc.toFixed(2)} N` : `F_L = (B²ℓ²/R)υ = ${fLcalc.toFixed(2)} N`;
   const l4 = `Pηλ = I²R = ${(state.pJoule).toFixed(2)} W`;
   dctx.fillText(l1, x + 8, y + 34);
@@ -784,13 +856,14 @@ function drawDiagnosticsPanel() {
   dctx.clearRect(0, 0, diagCanvas.width, diagCanvas.height);
 
   const pad = 12;
+  const graphCfg = graphSeriesConfig();
   const narrow = diagCanvas.width < 760;
   if (narrow) {
     const fullW = diagCanvas.width - pad * 2;
     const graphH = Math.floor(diagCanvas.height * 0.47);
     const barsH = Math.floor(diagCanvas.height * 0.23);
     const formulaH = diagCanvas.height - graphH - barsH - pad * 4;
-    drawMiniSeriesBox(pad, pad, fullW, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
+    drawMiniSeriesBox(pad, pad, fullW, graphH, graphCfg.label, state.iTrace, graphCfg.key, graphCfg.color, state.iMin, state.iMax, state.tAxisMax);
     drawPowerBars(pad, pad * 2 + graphH, fullW, barsH);
     drawFormulaBox(pad, pad * 3 + graphH + barsH, fullW, formulaH);
   } else {
@@ -800,7 +873,7 @@ function drawDiagnosticsPanel() {
     const gy = pad;
     const gw = leftW;
     const graphH = diagCanvas.height - pad * 2;
-    drawMiniSeriesBox(gx, gy, gw, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
+    drawMiniSeriesBox(gx, gy, gw, graphH, graphCfg.label, state.iTrace, graphCfg.key, graphCfg.color, state.iMin, state.iMax, state.tAxisMax);
 
     const rightX = gx + gw + pad;
     const barsH = 165;
@@ -1007,6 +1080,15 @@ slowBtn.addEventListener("click", () => {
   slowBtn.textContent = `Slow motion: ${state.slowMotion ? "On" : "Off"}`;
   slowBtn.classList.toggle("slow-on", state.slowMotion);
 });
+
+if (graphModeSelect) {
+  graphModeSelect.addEventListener("change", () => {
+    state.graphMode = graphModeSelect.value;
+    state.iMin = -0.2;
+    state.iMax = 0.2;
+    updateTraceBounds();
+  });
+}
 
 resetSimulation();
 requestAnimationFrame(tick);
