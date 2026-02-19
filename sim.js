@@ -1,5 +1,7 @@
 const canvas = document.getElementById("simCanvas");
 const ctx = canvas.getContext("2d");
+const diagCanvas = document.getElementById("diagCanvas");
+const dctx = diagCanvas ? diagCanvas.getContext("2d") : null;
 
 const scenarioSelect = document.getElementById("scenarioSelect");
 const bSlider = document.getElementById("bSlider");
@@ -47,6 +49,7 @@ const VERTICAL_TRACK_LENGTH = 180;
 const ZERO_F_EPS = 0.01;
 const ZERO_A_EPS = 0.01;
 const G = 10;
+const TRACE_MAX = 5000;
 
 const state = {
   scenario: scenarioSelect.value,
@@ -74,7 +77,15 @@ const state = {
   Fnet: 0,
   FextDynamic: Number(fSlider.value),
   lastTime: null,
-  Fnet0Abs: 0
+  Fnet0Abs: 0,
+  heatJ: 0,
+  pExt: 0,
+  pJoule: 0,
+  pKDot: 0,
+  iTrace: [],
+  iMin: 0,
+  iMax: 1,
+  tAxisMax: 8
 };
 
 function dampingK() {
@@ -103,6 +114,45 @@ function drivingForce() {
 
 function currentTrackLength() {
   return state.scenario === "vertical-gravity" ? VERTICAL_TRACK_LENGTH : TRACK_LENGTH;
+}
+
+function pushHistory() {
+  state.iTrace.push({ t: state.t, i: state.I });
+  if (state.iTrace.length > TRACE_MAX) {
+    state.iTrace.shift();
+  }
+
+  updateTraceBounds();
+}
+
+function updateTraceBounds() {
+  if (state.iTrace.length === 0) {
+    state.iMin = -0.1;
+    state.iMax = 0.1;
+    state.tAxisMax = 8;
+    return;
+  }
+
+  const iValues = state.iTrace.map((p) => p.i);
+  const iMin = Math.min(...iValues);
+  const iMax = Math.max(...iValues);
+  const span = Math.max(0.15, iMax - iMin);
+  const pad = 0.18 * span;
+  state.iMin = iMin - pad;
+  state.iMax = iMax + pad;
+  state.tAxisMax = Math.max(8, state.t);
+}
+
+function resetTraceAtCurrentTime() {
+  state.iTrace = [{ t: state.t, i: state.I }];
+  updateTraceBounds();
+}
+
+function updatePowerMetrics() {
+  const Fdrive = drivingForce();
+  state.pExt = Fdrive * state.u;
+  state.pJoule = state.I * state.I * state.R;
+  state.pKDot = state.Fnet * state.u;
 }
 
 function terminalVelocity() {
@@ -182,6 +232,7 @@ function recalcForces() {
     state.a = state.Fnet / state.m;
     state.FextDynamic = state.scenario === "with-force" ? F : 0;
   }
+  updatePowerMetrics();
 }
 
 function updateMeasurements() {
@@ -596,6 +647,147 @@ function drawSceneVertical() {
   }
 }
 
+function drawMiniSeriesBox(x, y, w, h, label, points, color, minVal, maxVal, tMax) {
+  dctx.strokeStyle = "#b5c5d9";
+  dctx.fillStyle = "rgba(255,255,255,0.9)";
+  dctx.lineWidth = 1.2;
+  dctx.fillRect(x, y, w, h);
+  dctx.strokeRect(x, y, w, h);
+
+  dctx.fillStyle = "#2a3f5e";
+  dctx.font = "bold 12px Arial";
+  dctx.fillText(label, x + 8, y + 15);
+
+  const plotX = x + 8;
+  const plotY = y + 22;
+  const plotW = w - 16;
+  const plotH = h - 28;
+
+  dctx.strokeStyle = "#d3deeb";
+  dctx.lineWidth = 1;
+  dctx.beginPath();
+  dctx.moveTo(plotX, plotY + plotH / 2);
+  dctx.lineTo(plotX + plotW, plotY + plotH / 2);
+  dctx.stroke();
+
+  if (points.length < 2 || maxVal - minVal < 1e-9 || tMax <= 0) {
+    return;
+  }
+
+  const toX = (t) => plotX + (t / tMax) * plotW;
+  const toY = (v) => plotY + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
+
+  dctx.strokeStyle = color;
+  dctx.lineWidth = 2;
+  dctx.beginPath();
+  points.forEach((p, i) => {
+    const px = toX(p.t);
+    const py = toY(p.i);
+    if (i === 0) {
+      dctx.moveTo(px, py);
+    } else {
+      dctx.lineTo(px, py);
+    }
+  });
+  dctx.stroke();
+}
+
+function drawPowerBars(x, y, w, h) {
+  dctx.fillStyle = "rgba(255,255,255,0.92)";
+  dctx.strokeStyle = "#b5c5d9";
+  dctx.lineWidth = 1.2;
+  dctx.fillRect(x, y, w, h);
+  dctx.strokeRect(x, y, w, h);
+
+  const labels = ["Pext", "Pηλ", "dK/dt"];
+  const colors = ["#f28482", "#2a9d8f", "#6a4c93"];
+  const values = [state.pExt, state.pJoule, state.pKDot];
+  const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
+  const zeroY = y + h * 0.62;
+  const barW = 42;
+  const gap = 28;
+  const startX = x + 18;
+
+  dctx.strokeStyle = "#c8d7e8";
+  dctx.beginPath();
+  dctx.moveTo(x + 8, zeroY);
+  dctx.lineTo(x + w - 8, zeroY);
+  dctx.stroke();
+
+  values.forEach((v, i) => {
+    const bh = (Math.abs(v) / maxAbs) * (h * 0.44);
+    const bx = startX + i * (barW + gap);
+    const by = v >= 0 ? zeroY - bh : zeroY;
+    dctx.fillStyle = colors[i];
+    dctx.fillRect(bx, by, barW, bh);
+    dctx.fillStyle = "#233c5b";
+    dctx.font = "bold 11px Arial";
+    dctx.fillText(labels[i], bx - 2, y + h - 10);
+    dctx.fillText(v.toFixed(2), bx - 4, v >= 0 ? by - 5 : by + bh + 13);
+  });
+
+  // Heat gauge (Q = integral of I^2R dt)
+  const gaugeX = x + w - 70;
+  const gaugeY = y + 18;
+  const gaugeW = 20;
+  const gaugeH = h - 36;
+  const qMax = Math.max(5, state.heatJ * 1.2);
+  const fill = (state.heatJ / qMax) * gaugeH;
+
+  dctx.strokeStyle = "#6b7f9d";
+  dctx.lineWidth = 2;
+  dctx.strokeRect(gaugeX, gaugeY, gaugeW, gaugeH);
+  dctx.fillStyle = "#ff7b00";
+  dctx.fillRect(gaugeX + 2, gaugeY + gaugeH - fill + 2, gaugeW - 4, Math.max(0, fill - 4));
+  dctx.fillStyle = "#233c5b";
+  dctx.font = "bold 11px Arial";
+  dctx.fillText("Q", gaugeX + 3, gaugeY - 6);
+  dctx.fillText(`${state.heatJ.toFixed(1)} J`, gaugeX - 20, gaugeY + gaugeH + 14);
+}
+
+function drawFormulaBox(x, y, w, h) {
+  dctx.fillStyle = "rgba(255,255,255,0.93)";
+  dctx.strokeStyle = "#b5c5d9";
+  dctx.lineWidth = 1.2;
+  dctx.fillRect(x, y, w, h);
+  dctx.strokeRect(x, y, w, h);
+
+  dctx.fillStyle = "#223854";
+  dctx.font = "bold 12px Arial";
+  dctx.fillText("Live σχέσεις", x + 8, y + 15);
+  dctx.font = "12px Arial";
+  const fLcalc = dampingK() * Math.abs(state.u);
+  const l1 = `ε = Bℓυ = ${state.B.toFixed(2)}·${state.ell.toFixed(2)}·${Math.abs(state.u).toFixed(2)} = ${state.emf.toFixed(2)} V`;
+  const l2 = `I = ε/R = ${state.emf.toFixed(2)}/${state.R.toFixed(2)} = ${state.I.toFixed(2)} A`;
+  const l3 = `F_L = (B²ℓ²/R)υ = ${fLcalc.toFixed(2)} N`;
+  const l4 = `Pηλ = I²R = ${(state.pJoule).toFixed(2)} W`;
+  dctx.fillText(l1, x + 8, y + 34);
+  dctx.fillText(l2, x + 8, y + 52);
+  dctx.fillText(l3, x + 8, y + 70);
+  dctx.fillText(l4, x + 8, y + 88);
+}
+
+function drawDiagnosticsPanel() {
+  if (!dctx) {
+    return;
+  }
+
+  dctx.clearRect(0, 0, diagCanvas.width, diagCanvas.height);
+
+  const pad = 12;
+  const leftW = Math.floor(diagCanvas.width * 0.55);
+  const rightW = diagCanvas.width - leftW - pad * 3;
+  const gx = pad;
+  const gy = pad;
+  const gw = leftW;
+  const graphH = diagCanvas.height - pad * 2;
+  drawMiniSeriesBox(gx, gy, gw, graphH, "I(t) [A]", state.iTrace, "#1d3557", state.iMin, state.iMax, state.tAxisMax);
+
+  const rightX = gx + gw + pad;
+  drawPowerBars(rightX, gy, rightW, 150);
+  drawFormulaBox(rightX, gy + 156, rightW, 140);
+}
+
 function integrate(dt) {
   if (state.scenario === "uniform-accel") {
     const oldU = state.u;
@@ -620,6 +812,8 @@ function integrate(dt) {
       state.playing = false;
     }
     recalcForces();
+    state.heatJ += state.pJoule * dt;
+    pushHistory();
     return;
   }
   if (state.scenario === "constant-speed") {
@@ -635,6 +829,8 @@ function integrate(dt) {
       state.playing = false;
     }
     recalcForces();
+    state.heatJ += state.pJoule * dt;
+    pushHistory();
     return;
   }
 
@@ -675,6 +871,8 @@ function integrate(dt) {
   }
 
   recalcForces();
+  state.heatJ += state.pJoule * dt;
+  pushHistory();
 }
 
 function tick(timestamp) {
@@ -695,6 +893,7 @@ function tick(timestamp) {
   syncPlayPauseUI();
   updateMeasurements();
   drawScene();
+  drawDiagnosticsPanel();
   requestAnimationFrame(tick);
 }
 
@@ -702,8 +901,14 @@ function resetSimulation() {
   state.playing = false;
   state.t = 0;
   state.x = 0;
+  state.heatJ = 0;
+  state.iTrace = [];
+  state.iMin = 0;
+  state.iMax = 1;
+  state.tAxisMax = 8;
   applyScenarioDefaults();
   recalcForces();
+  pushHistory();
   state.Fnet0Abs = Math.abs(state.Fnet);
   syncPlayPauseUI();
   updateMeasurements();
@@ -738,6 +943,10 @@ u0Slider.addEventListener("input", () => {
   }
   if (!state.playing || state.scenario === "constant-speed") {
     applyScenarioDefaults();
+    recalcForces();
+    if (!state.playing && state.t === 0) {
+      resetTraceAtCurrentTime();
+    }
   }
 });
 

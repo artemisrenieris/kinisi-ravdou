@@ -149,7 +149,7 @@ button:active {
 .sim-area {
   padding: 0.75rem;
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
   gap: 0.72rem;
 }
 
@@ -160,6 +160,15 @@ button:active {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: linear-gradient(180deg, #f9fcff 0%, #edf2f9 100%);
+}
+
+#diagCanvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 980 / 320;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fcfeff 0%, #eef4fb 100%);
 }
 
 .canvas-controls {
