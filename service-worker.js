@@ -1,4 +1,4 @@
-const CACHE_NAME = "kinisi-ravdou-v3";
+const CACHE_NAME = "kinisi-ravdou-v4";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -6,8 +6,10 @@ const PRECACHE_URLS = [
   "./sim.js",
   "./pwa.js",
   "./manifest.json",
+  "./icons/apple-touch-icon.png",
   "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "./icons/icon-1024.png"
 ];
 
 self.addEventListener("install", (event) => {
