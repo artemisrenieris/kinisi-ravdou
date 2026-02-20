@@ -196,6 +196,14 @@ button:active {
   background: rgb(0 95 115 / 92%);
 }
 
+.canvas-controls select {
+  min-height: 35px;
+  padding: 0.3rem 0.45rem;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -266,6 +274,10 @@ button:active {
   .canvas-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
+  }
+
+  #diagCanvas {
+    aspect-ratio: 980 / 520;
   }
 
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "kinisi-ravdou-v2";
+const CACHE_NAME = "kinisi-ravdou-v3";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
@@ -55,6 +55,30 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".json");
 
   if (isStatic) {
+    const isScriptOrStyle =
+      req.destination === "script" ||
+      req.destination === "style" ||
+      url.pathname.endsWith(".js") ||
+      url.pathname.endsWith(".css") ||
+      url.pathname.endsWith(".json");
+
+    if (isScriptOrStyle) {
+      event.respondWith(
+        fetch(req)
+          .then((res) => {
+            if (res && res.ok) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(req, res.clone()));
+            }
+            return res;
+          })
+          .catch(async () => {
+            const cache = await caches.open(CACHE_NAME);
+            return (await cache.match(req)) || Response.error();
+          })
+      );
+      return;
+    }
+
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(req);
