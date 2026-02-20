@@ -1,4 +1,4 @@
-const CACHE_NAME = "kinisi-ravdou-v4";
+const CACHE_NAME = "kinisi-ravdou-v5";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
